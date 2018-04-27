@@ -3,12 +3,13 @@ import time
 import json
 import sys
 import fnmatch
+import os
 
 from builtins import dict
 from collections import defaultdict, OrderedDict
 
 from .plotter import Plotter
-from .metrics import TimeMetric_, AvgMetric_, SumMetric_, ParentWrapper_,\
+from .metrics import TimeMetric_, AvgMetric_, SumMetric_, ParentWrapper_, \
     SimpleMetric_, BestMetric_, DynamicMetric_
 
 # pickle for python 2 / 3
@@ -20,7 +21,7 @@ else:
 
 class Experiment(object):
 
-    def __init__(self, name, log_git_hash=True,
+    def __init__(self, name, main_path=None, log_git_hash=True,
                  use_visdom=False, visdom_opts=None,
                  time_indexing=True, xlabel=None):
         """ Create an experiment with the following parameters:
@@ -32,10 +33,11 @@ class Experiment(object):
 
         super(Experiment, self).__init__()
 
-        self.name = name.split('/')[-1]
-        self.name_and_dir = name
+        self.name = name
+        self.main_path = main_path
+        os.makedirs(self.main_path)
         self.date_and_time = time.strftime('%d-%m-%Y--%H-%M-%S')
-
+        self.file_name = self.name + '_' + self.date_and_time.replace('-', '_')
         self.logged = defaultdict(OrderedDict)
         self.metrics = defaultdict(dict)
         self.registered = []
@@ -186,7 +188,7 @@ class Experiment(object):
     def get_metric(self, name, tag="default"):
 
         assert tag in list(self.metrics.keys()) \
-            and name in list(self.metrics[tag].keys()), \
+               and name in list(self.metrics[tag].keys()), \
             "could not find metric with tag {} and name {}".format(tag, name)
 
         return self.metrics[tag][name]
@@ -194,22 +196,22 @@ class Experiment(object):
     def get_var_dict(self):
         var_dict = {}
         var_dict['config'] = self.config
+        var_dict['main_path'] = self.main_path
         var_dict['logged'] = self.logged
         var_dict['name'] = self.name
-        var_dict['name_and_dir'] = self.name_and_dir
         var_dict['date_and_time'] = self.date_and_time
         if self.use_visdom:
             var_dict['visdom_win_opts'] = self.plotter.windows_opts
         return var_dict
 
-    def to_pickle(self, filename):
+    def to_pickle(self):
         var_dict = self.get_var_dict()
-        with open(filename, 'wb') as f:
+        with open(self.file_name + '.pkl', 'wb') as f:
             pickle.dump(var_dict, f)
 
-    def to_json(self, filename):
+    def to_json(self):
         var_dict = self.get_var_dict()
-        with open(filename, 'w') as f:
+        with open(self.file_name + '.json', 'w') as f:
             json.dump(var_dict, f)
 
     def from_pickle(self, filename):
@@ -241,7 +243,8 @@ def _dict_process(my_dict):
         if not len(splitted):
             splitted.append("default")
         name, tag = '_'.join(splitted[:-1]), splitted[-1]
-        values = my_dict['logged'].pop(key)
+        # values = my_dict['logged'].pop(key)
+        values = my_dict['logged'][key]
         # sort values based on x-value
         values = sorted(values.items(), key=lambda x: float(x[0]))
         logged[tag][name] = OrderedDict(values)
