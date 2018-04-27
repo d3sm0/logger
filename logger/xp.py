@@ -35,9 +35,9 @@ class Experiment(object):
 
         self.name = name
         self.main_path = main_path
-        os.makedirs(self.main_path)
+        os.makedirs(self.main_path, exist_ok=True)
         self.date_and_time = time.strftime('%d-%m-%Y--%H-%M-%S')
-        self.file_name = self.name + '_' + self.date_and_time.replace('-', '_')
+        self.file_name = os.path.join(self.main_path, self.name + '_' + self.date_and_time.replace('-', '_'))
         self.logged = defaultdict(OrderedDict)
         self.metrics = defaultdict(dict)
         self.registered = []
